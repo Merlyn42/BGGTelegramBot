@@ -27,7 +27,8 @@ import telegram.Telegram
     
    
     def send(chatID:Long,message:String) = {
-      SendMessage(chatID,message)
+      println("sending \""+message+"\" to "+chatID)
+      println(api.request(SendMessage(chatID,message)))
     }
     
 

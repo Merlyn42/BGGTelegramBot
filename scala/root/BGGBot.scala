@@ -10,7 +10,7 @@ import akka.actor.Props
 class BGGBot extends Actor {
   
   override def preStart(): Unit = {
-    val telegram = context.actorOf(Props[Telegram], "telegram")
+    val tel = context.actorOf(Props[Telegram], "telegram")
   }
 
   def receive = {

@@ -21,12 +21,15 @@ class Telegram extends Actor {
   }
   
   def receive = {
-    case Telegram.Send(id,m) => gateway.send(id, m)
+    case Telegram.Send(id,m) => {
+      gateway.send(id, m)
+      
+      }
     case Telegram.Receive(id,command,args) => {
       val request = command match {
         case "score" => data.Score(args.reduce({(a,b)=>a+" "+b}))
       }
-      val chat = context.actorOf(Props[Chat], id.toString())
+      val chat = context.actorOf(Props(classOf[Chat],id,self))
       chat ! request
     }
   }
