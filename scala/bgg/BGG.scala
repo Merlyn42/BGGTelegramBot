@@ -38,13 +38,15 @@ class BGG(parent:ActorRef) extends Actor {
     case Score(name) =>
       val searchResultF = search(name, true)
       searchResultF onSuccess {
-        case result => 
-          result match {
-            case Left(x) => sender() ! x
-            case Right(x) => 
-              val data = lookup(x.head.id)
-          }       
-          
+          case Left(x) => parent ! x
+          case Right(x) => 
+            val dataF = lookup(x.head.id)
+            dataF onSuccess {
+              case data => parent ! (data.name +" has a score of " + data.score)
+            }
+            dataF onFailure {
+              case t => sender() ! "There was an error contacting BGG"
+            }
       }
       searchResultF onFailure {
         case t => sender() ! "There was an error contacting BGG"
@@ -64,9 +66,11 @@ class BGG(parent:ActorRef) extends Actor {
     val responseF = http.singleRequest(request)
     val searchResultF = responseF.flatMap { 
       x => Unmarshal(x.entity).to[NodeSeq].map{
-        xml => val games = xml \ "boardgame"
+        xml => val games = xml \\ "boardgame"
         if(games.length>0){
-          Right(games.map { g => SearchResult((xml \\ "name").text,(xml \\ "@objectid").toString())})
+          val results = games.map { case g => SearchResult((g \ "name").text,(g \ "@objectid").toString())}
+          println(results)
+          Right(results)
         }else{
           Left("No game with that name found")
         }
@@ -80,7 +84,10 @@ class BGG(parent:ActorRef) extends Actor {
     val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/boardgame/"+id).withQuery(Query(params)))
     val responseF = http.singleRequest(request)
     val gameDataF = responseF.flatMap { 
-      response => Unmarshal(response.entity).to[NodeSeq].map { xml => GameData((xml \\ "name").text,(xml \\ "average").text) }
+      response => Unmarshal(response.entity).to[NodeSeq].map {
+        case xml => println(xml)
+          GameData((xml \\ "name").text,(xml \\ "average").text)
+      }
     }
     return gameDataF  
   }

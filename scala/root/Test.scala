@@ -24,6 +24,10 @@ import akka.http.scaladsl.client.RequestBuilding
 import scala.concurrent.Await
 import java.nio.charset.Charset
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
+import bgg.SearchResult
+import bgg.GameData
+import scala.xml.Elem
+import scala.xml.Node
 
 object Test {
   
@@ -33,22 +37,38 @@ object Test {
  
   val http = Http()
     def main(args: Array[String]): Unit = {
-    /*val params = Map("search" -> "2 Hour Test Cricket", "exact" -> "1")   
+    /*val params = Map("search" -> "agricola", "exact" -> "1")   
     val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/search").withQuery(Query(params)))
     val respF = Http().singleRequest(request)
-    val idF = respF.flatMap { x => Unmarshal(x.entity).to[NodeSeq].map { y => y \\ "@objectid" } }
-    idF.onComplete { x => println(x.get) }*/
+    val searchResultF = respF.flatMap { 
+      x => Unmarshal(x.entity).to[NodeSeq].map{
+        xml => val games = xml \ "boardgame"
+         val data =  games.map { case g => println("a test"+g) 
+            SearchResult((g \ "name").text,(g \ "@objectid").toString())
+        }
+        print(data.head.id)
+      }
+    }*/
     
+    def attributeValueEquals(value: String)(node: Node) = {
+     node.attributes.exists(_.value.text == value)
+    }
     
     val params = Map("stats" -> "1")   
-    val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/boardgame/"+"26921").withQuery(Query(params)))
+    val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/boardgame/"+31260).withQuery(Query(params)))
     val responseF = http.singleRequest(request)
-    val score = responseF.flatMap { x => Unmarshal(x.entity).to[NodeSeq].map {
-        y => val avgnode = y \\  "average"
-        avgnode.text
-      } 
+    val gameDataF = responseF.flatMap { 
+      response => Unmarshal(response.entity).to[NodeSeq].map {
+        case xml => //println(xml)
+        val nameElem = xml \ "boardgame" \ "name" filter attributeValueEquals("true")
+        val scoreElem = xml \ "boardgame" \ "statistics" \ "ratings" \ "average"
+          GameData(nameElem.text,scoreElem.text)
+      }
     }
-    score.onComplete { x => println(x.get) }
+    gameDataF.onComplete { x => print(x) }
+    
+
+
     
    // val  x = respF.flatMap{ x => Unmarshal(x.entity).to[NodeSeq] }
     //x.onComplete {  y => print(y.get.\\ ("@objectid")) }
