@@ -1,5 +1,6 @@
 package bgg
 
+
 import akka.actor.Actor
 import akka.actor.Terminated
 import data.Score
@@ -20,9 +21,10 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import scala.concurrent.Future
 import akka.http.scaladsl.model.StatusCodes.Success
+import scala.xml.Node
 
 case class SearchResult(name:String,id:String)
-case class GameData(name:String,score:String)
+case class GameData(name:String,score:String,bestPlayedWith:String)
 
 class BGG(parent:ActorRef) extends Actor {
   
@@ -42,7 +44,7 @@ class BGG(parent:ActorRef) extends Actor {
           case Right(x) => 
             val dataF = lookup(x.head.id)
             dataF onSuccess {
-              case data => parent ! (data.name +" has a score of " + data.score)
+              case data => parent ! (data.name +" has a score of " + data.score +" and is best played with "+data.bestPlayedWith+".\n https://www.boardgamegeek.com/boardgame/"+x.head.id)
             }
             dataF onFailure {
               case t => sender() ! "There was an error contacting BGG"
@@ -85,8 +87,15 @@ class BGG(parent:ActorRef) extends Actor {
     val responseF = http.singleRequest(request)
     val gameDataF = responseF.flatMap { 
       response => Unmarshal(response.entity).to[NodeSeq].map {
-        case xml => println(xml)
-          GameData((xml \\ "name").text,(xml \\ "average").text)
+        case xml => 
+          val nameElem = xml \ "boardgame" \ "name" filter attributeValueEquals("true")
+          val scoreElem = xml \ "boardgame" \ "statistics" \ "ratings" \ "average"
+           val numPlayersPoll = xml \ "boardgame" \ "poll" filter attributeValueEquals("suggested_numplayers")
+        val numPlayersNode = numPlayersPoll \ "results" maxBy { x =>
+          (x \ "result" filter attributeValueEquals("Best")).head.attribute("numvotes").get.text.toInt
+        } attribute("numplayers")
+        val numPlayers = numPlayersNode.get.text
+        GameData(nameElem.text,scoreElem.text,numPlayers)
       }
     }
     return gameDataF  
@@ -98,6 +107,10 @@ class BGG(parent:ActorRef) extends Actor {
     val responseF = http.singleRequest(request)
     val idF = responseF.flatMap { x => Unmarshal(x.entity).to[NodeSeq].map { y => (y \\ "@objectid").toString() } }
     return idF
+  }
+  
+  private def attributeValueEquals(value: String)(node: Node) = {
+    node.attributes.exists(_.value.text == value)
   }
   
   def getGameScore(id:String):Future[String] = {

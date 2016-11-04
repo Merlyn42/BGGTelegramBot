@@ -15,12 +15,11 @@ class Chat(chatID:Long,parent:ActorRef) extends Actor {
   
   implicit val timeout = Timeout(5 seconds)
   def receive = {
+    case Score("")=>
     case score:Score=>
-      println("scoring Request")
       val bgg = context.actorOf(Props(classOf[BGG],self), "bgg")
       bgg ! score
     case s:String =>
-      println("received a string")
       parent ! Telegram.Send(chatID,s)
       context.stop(self)
     case _ =>

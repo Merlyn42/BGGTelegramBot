@@ -27,7 +27,7 @@ class Telegram extends Actor {
       }
     case Telegram.Receive(id,command,args) => {
       val request = command match {
-        case "score" => data.Score(args.reduce({(a,b)=>a+" "+b}))
+        case "score" => data.Score(args.reduceOption(_ +" "+_).getOrElse(""))
       }
       val chat = context.actorOf(Props(classOf[Chat],id,self))
       chat ! request

@@ -55,14 +55,20 @@ object Test {
     }
     
     val params = Map("stats" -> "1")   
-    val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/boardgame/"+31260).withQuery(Query(params)))
+    val request = RequestBuilding.Get(Uri("http://www.boardgamegeek.com/xmlapi/boardgame/"+209010).withQuery(Query(params)))
     val responseF = http.singleRequest(request)
     val gameDataF = responseF.flatMap { 
       response => Unmarshal(response.entity).to[NodeSeq].map {
         case xml => //println(xml)
         val nameElem = xml \ "boardgame" \ "name" filter attributeValueEquals("true")
         val scoreElem = xml \ "boardgame" \ "statistics" \ "ratings" \ "average"
-          GameData(nameElem.text,scoreElem.text)
+        val numPlayersPoll = xml \ "boardgame" \ "poll" filter attributeValueEquals("suggested_numplayers")
+        val numPlayersNode = numPlayersPoll \ "results" maxBy { x =>
+          (x \ "result" filter attributeValueEquals("Best")).head.attribute("numvotes").get.text.toInt
+        } attribute("numplayers")
+        val numPlayers = numPlayersNode.get.text
+        println(numPlayers)
+        GameData(nameElem.text,scoreElem.text,numPlayers)
       }
     }
     gameDataF.onComplete { x => print(x) }
